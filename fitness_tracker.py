@@ -22,7 +22,7 @@ if 'workouts' not in st.session_state:
 if 'goals' not in st.session_state:
     st.session_state.goals = []
 
-# Styling
+# Updated Styling
 st.markdown("""
     <style>
     .main {
@@ -32,8 +32,17 @@ st.markdown("""
         width: 100%;
         height: 3rem;
         font-size: 1.2rem;
-        background-color: #1E88E5;
+        background-color: #1E88E5 !important;
         color: white;
+        border: none !important;
+    }
+    .stButton>button:hover {
+        background-color: #1E88E5 !important;
+        border: none !important;
+    }
+    .stButton>button:active {
+        background-color: #1E88E5 !important;
+        border: none !important;
     }
     .workout-card {
         padding: 1.5rem;
@@ -78,7 +87,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Add these constants after imports
+# Constants
 FITNESS_TIPS = {
     "Beginner": [
         "Start with 10 minutes of walking daily",
@@ -114,6 +123,65 @@ MOTIVATIONAL_QUOTES = [
     "🌈 Every workout makes you stronger!"
 ]
 
+# Updated PDF creation function
+def create_pdf_report(workouts):
+    """Create PDF report from workout data"""
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        
+        # Title
+        pdf.set_font('Arial', 'B', 16)
+        pdf.cell(0, 10, 'Fitness Tracker Report', 0, 1, 'C')
+        pdf.ln(10)
+        
+        # Summary
+        metrics = calculate_metrics(workouts)
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Summary', 0, 1, 'L')
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f"Total Workouts: {metrics['total_workouts']}", 0, 1, 'L')
+        pdf.cell(0, 10, f"Total Duration: {metrics['total_duration']} minutes", 0, 1, 'L')
+        pdf.cell(0, 10, f"Total Calories: {metrics['total_calories']} kcal", 0, 1, 'L')
+        pdf.ln(10)
+        
+        # Workout List
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Workout History', 0, 1, 'L')
+        
+        # Table header
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(30, 10, 'Date', 1)
+        pdf.cell(30, 10, 'Type', 1)
+        pdf.cell(30, 10, 'Duration', 1)
+        pdf.cell(30, 10, 'Calories', 1)
+        pdf.ln()
+        
+        # Table content
+        pdf.set_font('Arial', '', 10)
+        for workout in workouts:
+            # Convert all values to ASCII-safe strings
+            date = str(workout['date'])
+            workout_type = workout['type'][:20]  # Limit length to avoid overflow
+            duration = str(workout['duration'])
+            calories = str(workout['calories'])
+            
+            try:
+                pdf.cell(30, 10, date, 1)
+                pdf.cell(30, 10, workout_type, 1)
+                pdf.cell(30, 10, duration, 1)
+                pdf.cell(30, 10, calories, 1)
+                pdf.ln()
+            except Exception:
+                continue
+        
+        return pdf.output(dest='S').encode('latin-1', errors='replace')
+    except Exception as e:
+        st.error(f"Error creating PDF: {str(e)}")
+        return None
+
+# Helper functions (unchanged)
 def generate_exercise_tips(workouts):
     """Generate personalized exercise tips based on workout history"""
     if not workouts:
@@ -122,23 +190,19 @@ def generate_exercise_tips(workouts):
     df = pd.DataFrame(workouts)
     tips = []
     
-    # Frequency analysis
     df['date'] = pd.to_datetime(df['date'])
     weekly_workouts = len(df[df['date'] >= (datetime.now() - timedelta(days=7))])
     if weekly_workouts < 3:
         tips.append("Try to exercise at least 3 times per week for better results")
     
-    # Duration analysis
     avg_duration = df['duration'].mean()
     if avg_duration < 30:
         tips.append("Aim for at least 30 minutes per workout session")
     
-    # Variety analysis
     workout_types = df['type'].unique()
     if len(workout_types) < 3:
         tips.append("Mix up your routine with different types of exercises")
     
-    # Intensity analysis
     avg_calories = df['calories'].mean()
     if avg_calories < 200:
         tips.append("Consider increasing workout intensity to burn more calories")
@@ -198,53 +262,6 @@ def calculate_metrics(workouts):
         'weekly_workouts': len(weekly_df)
     }
 
-def create_pdf_report(workouts):
-    """Create PDF report from workout data"""
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # Title
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 10, 'Fitness Tracker Report', 0, 1, 'C')
-    pdf.ln(10)
-    
-    # Summary
-    df = pd.DataFrame(workouts)
-    metrics = calculate_metrics(workouts)
-    
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, 'Summary', 0, 1, 'L')
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 10, f"Total Workouts: {metrics['total_workouts']}", 0, 1, 'L')
-    pdf.cell(0, 10, f"Total Duration: {metrics['total_duration']} minutes", 0, 1, 'L')
-    pdf.cell(0, 10, f"Total Calories: {metrics['total_calories']}", 0, 1, 'L')
-    pdf.ln(10)
-    
-    # Workout List
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, 'Workout History', 0, 1, 'L')
-    
-    # Table header
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(30, 10, 'Date', 1)
-    pdf.cell(30, 10, 'Type', 1)
-    pdf.cell(30, 10, 'Duration', 1)
-    pdf.cell(30, 10, 'Calories', 1)
-    pdf.cell(0, 10, 'Notes', 1)
-    pdf.ln()
-    
-    # Table content
-    pdf.set_font('Arial', '', 10)
-    for workout in workouts:
-        pdf.cell(30, 10, workout['date'], 1)
-        pdf.cell(30, 10, workout['type'], 1)
-        pdf.cell(30, 10, str(workout['duration']), 1)
-        pdf.cell(30, 10, str(workout['calories']), 1)
-        pdf.cell(0, 10, workout.get('notes', ''), 1)
-        pdf.ln()
-    
-    return pdf.output(dest='S').encode('latin-1')
-
 def get_fitness_level(workouts):
     """Determine user's fitness level based on workout history"""
     if not workouts:
@@ -290,14 +307,18 @@ def main():
                 
             with col2:
                 duration = st.number_input("Duration (minutes)", min_value=1, value=30)
-                calories = st.number_input("Calories Burned", min_value=0, value=100)
                 
             col3, col4 = st.columns(2)
             with col3:
-                distance = st.number_input("Distance (km)", min_value=0.0, value=0.0, step=0.1)
+                distance = st.number_input("Distance", min_value=0.0, value=0.0, step=0.1)
+                st.markdown("*in km*")
             with col4:
-                heart_rate = st.number_input("Avg Heart Rate (bpm)", min_value=0, value=0)
+                heart_rate = st.number_input("Avg Heart Rate", min_value=0, value=0)
+                st.markdown("*in bpm*")
                 
+            calories = st.number_input("Calories Burned", min_value=0, value=100)
+            st.markdown("*in kcal*")
+            
             notes = st.text_area("Notes (optional)")
             
             if st.button("Save Workout", use_container_width=True):
@@ -312,17 +333,12 @@ def main():
                 }
                 save_workout(workout)
                 
-                # Add motivational feedback
                 st.success("Workout logged successfully! 🎉")
                 st.markdown(f"### {random.choice(MOTIVATIONAL_QUOTES)}")
                 
-                # Show personalized tip
                 fitness_level = get_fitness_level(st.session_state.workouts)
                 tip = random.choice(FITNESS_TIPS[fitness_level])
                 st.info(f"💡 Tip for {fitness_level} level: {tip}")
-                
-                # Show celebration effects
-                st.balloons()
                 
         with tabs[1]:
             st.info("Device sync feature coming soon!")
@@ -343,11 +359,11 @@ def main():
         with col2:
             st.metric("Weekly Workouts", metrics['weekly_workouts'])
         with col3:
-            st.metric("Total Duration (mins)", metrics['total_duration'])
+            st.metric("Total Duration", f"{metrics['total_duration']} mins")
         with col4:
-            st.metric("Total Calories", metrics['total_calories'])
+            st.metric("Total Calories", f"{metrics['total_calories']} kcal")
         with col5:
-            st.metric("Avg Duration (mins)", metrics['avg_duration'])
+            st.metric("Avg Duration", f"{metrics['avg_duration']} mins")
             
         # Progress charts
         col1, col2 = st.columns(2)
@@ -368,10 +384,9 @@ def main():
             
         # Recent workouts
         st.subheader("Recent Workouts")
-        df = pd.DataFrame(st.session_state.workouts[::-1])  # Reverse order
+        df = pd.DataFrame(st.session_state.workouts[::-1])
         st.dataframe(df, use_container_width=True)
         
-        # Add this to View Progress page after metrics
         st.markdown("### 💪 Your Fitness Journey")
         fitness_level = get_fitness_level(st.session_state.workouts)
         st.markdown(f"""
@@ -432,16 +447,14 @@ def main():
             df = pd.DataFrame(st.session_state.workouts)
             
             if export_format == "PDF":
-                try:
-                    pdf_data = create_pdf_report(st.session_state.workouts)
+                pdf_data = create_pdf_report(st.session_state.workouts)
+                if pdf_data:
                     st.download_button(
                         "Download PDF",
                         pdf_data,
                         "fitness_tracker_report.pdf",
                         "application/pdf"
                     )
-                except Exception as e:
-                    st.error(f"Error creating PDF: {str(e)}")
                 
             elif export_format == "CSV":
                 csv = df.to_csv(index=False)
@@ -461,4 +474,4 @@ def main():
                 )
 
 if __name__ == "__main__":
-    main() 
+    main()
